@@ -28,6 +28,11 @@ class TMDBClient {
         case createSessionId
         case webAuth
         case logout
+        case getFavorites
+        case search (String)
+        case markWatchlist
+        case markFavorite
+        case posterImage(String)
         
         // String values of Endpoints including base and apiKeyParam
         var stringValue: String {
@@ -44,6 +49,16 @@ class TMDBClient {
             case .webAuth: return "https://www.themoviedb.org/authenticate/" + Auth.requestToken + "?redirect_to=themoviemanager:authenticate"
                 
             case .logout: return Endpoints.base + "/authentication/session" + Endpoints.apiKeyParam
+                
+            case .getFavorites: return Endpoints.base + "/account/\(Auth.accountId)/favorite/movies" + Endpoints.apiKeyParam + "&session_id=\(Auth.sessionId)"
+                
+            case .search(let query): return Endpoints.base + "/search/movie" + Endpoints.apiKeyParam + "&query=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+                
+            case .markWatchlist: return Endpoints.base + "/account/\(Auth.accountId)/watchlist" + Endpoints.apiKeyParam
+                
+            case .markFavorite: return Endpoints.base + "/account/\(Auth.accountId)/favorite" + Endpoints.apiKeyParam + "&session_id=\(Auth.sessionId)"
+                
+            case .posterImage(let posterPath): return "https://image.tmdb.org/t/p/w500" + posterPath
             }
         }
         
@@ -55,6 +70,28 @@ class TMDBClient {
     // GET Request - Watch List
     class func getWatchlist(completion: @escaping ([Movie], Error?) -> Void) {
         taskForGETRequest(url: Endpoints.getWatchlist.url, responseType: MovieResults.self) { (response, error) in
+            if let response = response {
+                completion(response.results,nil)
+            } else{
+                completion([], error)
+            }
+        }
+    }
+    
+    //GET Request - Favorites List
+    class func getFavorites(completion: @escaping ([Movie], Error?) -> Void) {
+        taskForGETRequest(url: Endpoints.getFavorites.url, responseType: MovieResults.self) { (response, error) in
+            if let response = response {
+                completion(response.results,nil)
+            } else{
+                completion([], error)
+            }
+        }
+    }
+    
+    //GET Request - Search
+    class func search(query: String, completion: @escaping ([Movie], Error?) -> Void) {
+        taskForGETRequest(url: Endpoints.search(query).url, responseType: MovieResults.self) { (response, error) in
             if let response = response {
                 completion(response.results,nil)
             } else{
@@ -96,6 +133,30 @@ class TMDBClient {
             if let response = response {
                 Auth.sessionId = response.sessionId
                 completion(true, nil)
+            } else{
+                completion(false, error)
+            }
+        }
+    }
+    
+    // POST Request - Adding/Marking a movie to Watch list
+    class func markWatchlist(movieId: Int, watchlist: Bool, completion: @escaping (Bool, Error?) -> Void) {
+        let body = MarkWatchlist(mediaType: "movie", mediaId: movieId, watchlist: watchlist)
+        taskForPOSTRequest(url: Endpoints.markWatchlist.url, responseType: TMDBResponse.self, body: body) { (response, error) in
+            if let response = response {
+                completion(response.statusCode == 1 || response.statusCode == 12 || response.statusCode == 13, nil)
+            } else{
+                completion(false, error)
+            }
+        }
+    }
+    
+    // POST Request - Adding/Marking a movie to Favorite list
+    class func markFavorite(movieId: Int, favorite: Bool, completion: @escaping (Bool, Error?) -> Void) {
+        let body = MarkFavorite(mediaType: "movie", mediaId: movieId, favorite: favorite)
+        taskForPOSTRequest(url: Endpoints.markFavorite.url, responseType: TMDBResponse.self, body: body) { (response, error) in
+            if let response = response {
+                completion(response.statusCode == 1 || response.statusCode == 12 || response.statusCode == 13, nil)
             } else{
                 completion(false, error)
             }
@@ -174,7 +235,15 @@ class TMDBClient {
             }
         }
         task.resume()
-        
     }
     
+    
+    class func downloadPosterImage(path: String, completion: @escaping (Data?, Error?) -> Void) {
+        let task = URLSession.shared.dataTask(with: Endpoints.posterImage(path).url) { (data, response, error) in
+            DispatchQueue.main.async {
+                completion(data, error)
+            }
+        }
+        task.resume()
+    }
 }
