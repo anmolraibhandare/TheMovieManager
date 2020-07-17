@@ -26,23 +26,20 @@ class LoginViewController: UIViewController {
         TMDBClient.getRequestToken(completion: handleRequestTokenResponse(success:error:))
     }
     
+    // No need to call DispathQueue.main.async here because we already pushed the code into main thread in TMDBCliend.swift file through taskForGETRequest function
     @IBAction func loginViaWebsiteTapped() {
-//        performSegue(withIdentifier: "completeLogin", sender: nil)
         TMDBClient.getRequestToken { (success, error) in
             if success{
-                DispatchQueue.main.async {
-                                    UIApplication.shared.open(TMDBClient.Endpoints.webAuth.url, options: [:], completionHandler: nil)
-                }
+                UIApplication.shared.open(TMDBClient.Endpoints.webAuth.url, options: [:], completionHandler: nil)
             }
         }
     }
     
+    // No need to call DispathQueue.main.async here because we already pushed the code into main thread in TMDBCliend.swift file through taskForGETRequest function
     func handleRequestTokenResponse(success: Bool, error: Error?){
         if success{
             print(TMDBClient.Auth.requestToken)
-            DispatchQueue.main.async {
-                    TMDBClient.login(username: self.emailTextField.text ?? "", password: self.passwordTextField.text ?? "", completion: self.handleLoginResponse(success:Error:))
-                }
+            TMDBClient.login(username: self.emailTextField.text ?? "", password: self.passwordTextField.text ?? "", completion: self.handleLoginResponse(success:Error:))
             }
     }
     
@@ -53,11 +50,10 @@ class LoginViewController: UIViewController {
         }
     }
     
+    // No need to call DispathQueue.main.async here because we already pushed the code into main thread in TMDBCliend.swift file through taskForPOSTRequest function
     func handleSessionResponse(success: Bool, Error: Error?){
         if success{
-            DispatchQueue.main.async {
                 self.performSegue(withIdentifier: "completeLogin", sender: nil)
-            }
         }
     }
     
