@@ -17,7 +17,7 @@ class WatchlistViewController: UIViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         
-        _ = TMDBClient.getWatchlist() { movies, error in
+        TMDBClient.getWatchlist() { movies, error in
             MovieModel.watchlist = movies
                 self.tableView.reloadData()
         }
@@ -54,6 +54,7 @@ extension WatchlistViewController: UITableViewDataSource, UITableViewDelegate {
         let movie = MovieModel.watchlist[indexPath.row]
         
         cell.textLabel?.text = movie.title
+        cell.imageView?.image = UIImage(named: "PosterPlaceHolder")
         if let posterPath = movie.posterPath{
             TMDBClient.downloadPosterImage(path: posterPath) { (data, error) in
                 guard let data = data else{

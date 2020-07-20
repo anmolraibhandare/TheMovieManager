@@ -10,6 +10,7 @@ import UIKit
 
 class LoginViewController: UIViewController {
     
+    @IBOutlet weak var activityIndicator: UIActivityIndicatorView!
     @IBOutlet weak var emailTextField: UITextField!
     @IBOutlet weak var passwordTextField: UITextField!
     @IBOutlet weak var loginButton: UIButton!
@@ -23,11 +24,13 @@ class LoginViewController: UIViewController {
     }
     
     @IBAction func loginTapped(_ sender: UIButton) {
+        setLoggingIn(true)
         TMDBClient.getRequestToken(completion: handleRequestTokenResponse(success:error:))
     }
     
     // No need to call DispathQueue.main.async here because we already pushed the code into main thread in TMDBCliend.swift file through taskForGETRequest function
     @IBAction func loginViaWebsiteTapped() {
+        setLoggingIn(true)
         TMDBClient.getRequestToken { (success, error) in
             if success{
                 UIApplication.shared.open(TMDBClient.Endpoints.webAuth.url, options: [:], completionHandler: nil)
@@ -37,24 +40,51 @@ class LoginViewController: UIViewController {
     
     // No need to call DispathQueue.main.async here because we already pushed the code into main thread in TMDBCliend.swift file through taskForGETRequest function
     func handleRequestTokenResponse(success: Bool, error: Error?){
+        setLoggingIn(false)
         if success{
             print(TMDBClient.Auth.requestToken)
             TMDBClient.login(username: self.emailTextField.text ?? "", password: self.passwordTextField.text ?? "", completion: self.handleLoginResponse(success:Error:))
-            }
+        } else {
+            showLoginFailure(message: error?.localizedDescription ?? "")
+        }
     }
     
     func handleLoginResponse(success: Bool, Error: Error?){
+        setLoggingIn(false)
         print(TMDBClient.Auth.requestToken)
         if success{
             TMDBClient.createSessionId(completion: handleSessionResponse(success:Error:))
+        } else {
+            showLoginFailure(message: Error?.localizedDescription ?? "")
         }
     }
     
     // No need to call DispathQueue.main.async here because we already pushed the code into main thread in TMDBCliend.swift file through taskForPOSTRequest function
     func handleSessionResponse(success: Bool, Error: Error?){
+        setLoggingIn(false)
         if success{
                 self.performSegue(withIdentifier: "completeLogin", sender: nil)
+        } else {
+            showLoginFailure(message: Error?.localizedDescription ?? "")
         }
+    }
+    
+    func setLoggingIn(_ loggingIn: Bool){
+        if loggingIn {
+            activityIndicator.startAnimating()
+        } else{
+            activityIndicator.stopAnimating()
+        }
+        emailTextField.isEnabled = !loggingIn
+        passwordTextField.isEnabled = !loggingIn
+        loginButton.isEnabled = !loggingIn
+        loginViaWebsiteButton.isEnabled = !loggingIn
+    }
+    
+    func showLoginFailure(message: String) {
+        let alertVC = UIAlertController(title: "Login Failed", message: message, preferredStyle: .alert)
+        alertVC.addAction(UIAlertAction(title: "OK", style: .default, handler: nil))
+        show(alertVC, sender: nil)
     }
     
 }

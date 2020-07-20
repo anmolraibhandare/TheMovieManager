@@ -54,9 +54,9 @@ class TMDBClient {
                 
             case .search(let query): return Endpoints.base + "/search/movie" + Endpoints.apiKeyParam + "&query=\(query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
                 
-            case .markWatchlist: return Endpoints.base + "/account/\(Auth.accountId)/watchlist" + Endpoints.apiKeyParam
+            case .markWatchlist: return Endpoints.base + "/account/\(Auth.accountId)/watchlist" + Endpoints.apiKeyParam + "&session_id=\(Auth.sessionId)" + "&sort_by=created_at.desc"
                 
-            case .markFavorite: return Endpoints.base + "/account/\(Auth.accountId)/favorite" + Endpoints.apiKeyParam + "&session_id=\(Auth.sessionId)"
+            case .markFavorite: return Endpoints.base + "/account/\(Auth.accountId)/favorite" + Endpoints.apiKeyParam + "&session_id=\(Auth.sessionId)" + "&sort_by=created_at.asc"
                 
             case .posterImage(let posterPath): return "https://image.tmdb.org/t/p/w500" + posterPath
             }
@@ -90,14 +90,15 @@ class TMDBClient {
     }
     
     //GET Request - Search
-    class func search(query: String, completion: @escaping ([Movie], Error?) -> Void) {
-        taskForGETRequest(url: Endpoints.search(query).url, responseType: MovieResults.self) { (response, error) in
+    class func search(query: String, completion: @escaping ([Movie], Error?) -> Void) -> URLSessionTask {
+        let task = taskForGETRequest(url: Endpoints.search(query).url, responseType: MovieResults.self) { (response, error) in
             if let response = response {
                 completion(response.results,nil)
             } else{
                 completion([], error)
             }
         }
+        return task
     }
     
     // GET Request - Requesting Token (First step of Authentication)
@@ -144,6 +145,8 @@ class TMDBClient {
         let body = MarkWatchlist(mediaType: "movie", mediaId: movieId, watchlist: watchlist)
         taskForPOSTRequest(url: Endpoints.markWatchlist.url, responseType: TMDBResponse.self, body: body) { (response, error) in
             if let response = response {
+                // separate codes are used for posting, deleting, and updating a response
+                // all are considered "successful"
                 completion(response.statusCode == 1 || response.statusCode == 12 || response.statusCode == 13, nil)
             } else{
                 completion(false, error)
@@ -181,7 +184,7 @@ class TMDBClient {
     
     // Refactored GET Request into one class
     // One Generic type parameter(ResponseType: Decodable) to parse json objects
-    class func taskForGETRequest<ResponseType: Decodable>(url: URL, responseType: ResponseType.Type, completion: @escaping (ResponseType?, Error?) -> Void) {
+    class func taskForGETRequest<ResponseType: Decodable>(url: URL, responseType: ResponseType.Type, completion: @escaping (ResponseType?, Error?) -> Void) -> URLSessionTask {
         let task = URLSession.shared.dataTask(with: url) { data, response, error in
             guard let data = data else {
                 // DispatchQueue.main.async called to push the code in main thread
@@ -197,19 +200,29 @@ class TMDBClient {
                     completion(responseObject, nil)
                 }
             } catch {
-                DispatchQueue.main.async {
-                    completion(nil, error)
+                // Error Handling
+                do{
+                    let errorResponse = try decoder.decode(TMDBResponse.self, from: data)
+                    DispatchQueue.main.async {
+                        completion(nil, errorResponse)
+                    }
+                } catch {
+                    DispatchQueue.main.async {
+                        completion(nil, error)
+                    }
                 }
             }
         }
         task.resume()
+        
+        return task
     }
     
     // Refactored POST Request into one class
     // There are two generic parameters
     // 1. To parse json object like GET Request (ResponseType: Decodable)
     // 2. To convert swift object to json (RequestType: Encodable)
-    class func taskForPOSTRequest<RequestType: Encodable, ResponseType: Decodable>(url: URL, responseType: ResponseType.Type, body: RequestType, completion: @escaping (ResponseType?, Error?) -> Void) {
+    class func taskForPOSTRequest<RequestType: Encodable, ResponseType: Decodable>(url: URL, responseType: ResponseType.Type, body: RequestType, completion: @escaping (ResponseType?, Error?) -> Void) -> URLSessionTask {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -223,18 +236,31 @@ class TMDBClient {
                 }
                 return
             }
-            
+            let decoder = JSONDecoder()
             do{
-                let decoder = JSONDecoder()
                 let responseObject = try decoder.decode(ResponseType.self, from: data)
                 DispatchQueue.main.async {
+                    print(data)
+                    print(responseObject)
                     completion(responseObject, nil)
                 }
             } catch{
-                completion(nil, error)
+                // Error Handling
+                do{
+                    let errorResponse = try decoder.decode(TMDBResponse.self, from: data)
+                    DispatchQueue.main.async {
+                        completion(nil, errorResponse)
+                    }
+                } catch {
+                    DispatchQueue.main.async {
+                        completion(nil, error)
+                    }
+                }
             }
         }
         task.resume()
+        
+        return task
     }
     
     

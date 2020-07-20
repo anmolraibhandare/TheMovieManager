@@ -52,7 +52,9 @@ class MovieDetailViewController: UIViewController {
     func handleWatchlistResponse(success: Bool, error: Error?){
         if success{
             if isWatchlist{
-                MovieModel.watchlist = MovieModel.watchlist.filter(){ $0 != self.movie }
+                print("before delete: \(MovieModel.watchlist.count)")
+                MovieModel.watchlist = MovieModel.watchlist.filter() {$0 != movie}
+                print("after delete: \(MovieModel.watchlist.count)")
             } else {
                 MovieModel.watchlist.append(movie)
             }

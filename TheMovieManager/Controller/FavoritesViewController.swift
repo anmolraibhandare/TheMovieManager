@@ -54,6 +54,7 @@ extension FavoritesViewController: UITableViewDataSource, UITableViewDelegate {
         let movie = MovieModel.favorites[indexPath.row]
         
         cell.textLabel?.text = movie.title
+        cell.imageView?.image = UIImage(named: "PosterPlaceHolder")
         if let posterPath = movie.posterPath{
             TMDBClient.downloadPosterImage(path: posterPath) { (data, error) in
                 guard let data = data else{
@@ -73,5 +74,11 @@ extension FavoritesViewController: UITableViewDataSource, UITableViewDelegate {
         performSegue(withIdentifier: "showDetail", sender: nil)
         tableView.deselectRow(at: indexPath, animated: true)
     }
+    
+    func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
+        return true
+    }
+
+
     
 }
